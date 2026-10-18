@@ -29,7 +29,15 @@
       width: 100%;
       height: 100%;
       z-index: 1;
-      background: #20232a;
+      background: #e5e3df;
+    }
+
+    /* Ночной режим для стандартных тайлов OpenStreetMap (работает офлайн без доп. загрузки) */
+    body.dark-map #map {
+      background: #181a20;
+    }
+    body.dark-map .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
     }
 
     /* Верхняя панель поиска */
@@ -394,33 +402,20 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // 1. Инициализация карты и слоев (День / Ночь)
+    // 1. Инициализация карты с бесплатными тайлами OpenStreetMap (без API ключей)
     const map = L.map('map', { zoomControl: false }).setView([48.7858, 44.7797], 13);
 
-    const lightTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OSM &copy; CARTO'
-    });
-
-    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OSM &copy; CARTO'
-    });
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
 
     let isDarkTheme = false;
-    lightTiles.addTo(map);
 
     document.getElementById('themeBtn').addEventListener('click', (e) => {
       isDarkTheme = !isDarkTheme;
-      if (isDarkTheme) {
-        map.removeLayer(lightTiles);
-        darkTiles.addTo(map);
-        e.currentTarget.textContent = '☀️';
-      } else {
-        map.removeLayer(darkTiles);
-        lightTiles.addTo(map);
-        e.currentTarget.textContent = '🌙';
-      }
+      document.body.classList.toggle('dark-map', isDarkTheme);
+      e.currentTarget.textContent = isDarkTheme ? '☀️' : '🌙';
     });
 
     // 2. Автономные CSS-иконки маркеров
@@ -688,7 +683,6 @@
 
     // 9. Построение маршрута через OSRM
     async function buildRouteTo(destination) {
-      // Приоритет старта: 1) Выбранная вручную Точка А, 2) GPS координаты, 3) Центр экрана
       let origin = manualStartCoords || userCoords;
       if (!origin) {
         const center = map.getCenter();
@@ -712,7 +706,6 @@
         drawRoute(route.geometry);
 
         activeSteps = route.legs[0]?.steps || [];
-        // Если есть хотя бы 2 шага, показываем сразу ближайший маневр (steps[1]), а не точку старта
         currentStepIndex = activeSteps.length > 1 ? 1 : 0;
         totalRouteDistance = route.distance;
         totalRouteDuration = route.duration;
@@ -767,12 +760,10 @@
       const step = activeSteps[currentStepIndex];
       if (!step || !step.maneuver || !step.maneuver.location) return;
 
-      // В OSRM координаты маневра идут как [lon, lat]
       const maneuverLatLng = L.latLng(step.maneuver.location[1], step.maneuver.location[0]);
       const userLatLng = L.latLng(currentPos[0], currentPos[1]);
       const distToManeuver = userLatLng.distanceTo(maneuverLatLng);
 
-      // Если подъехали к повороту ближе чем на 25 метров — переключаем на следующий маневр
       if (distToManeuver < 25) {
         if (currentStepIndex < activeSteps.length - 1) {
           currentStepIndex++;
@@ -802,11 +793,12 @@
 
     document.getElementById('cancelNavBtn').addEventListener('click', stopNavigation);
 
-    // 10. Регистрация Service Worker
+    // 10. Регистрация Service Worker с автообновлением
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .catch((err) => console.error('Ошибка регистрации SW:', err));
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          reg.update();
+        }).catch((err) => console.error('Ошибка регистрации SW:', err));
       });
     }
 
