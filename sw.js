@@ -1,6 +1,6 @@
-const CACHE_NAME = 'navigator-core-v2';
-const TILE_CACHE = 'navigator-tiles-v2';
-const API_CACHE = 'navigator-api-v2';
+const CACHE_NAME = 'navigator-core-v3';
+const TILE_CACHE = 'navigator-tiles-v3';
+const API_CACHE = 'navigator-api-v3';
 
 const STATIC_ASSETS = [
   './',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
-// Прозрачный PNG 1x1 для отсутствующих в офлайне тайлов (чтобы не было битых иконок)
+// Прозрачный PNG 1x1 для отсутствующих в офлайне тайлов
 const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 self.addEventListener('install', (event) => {
@@ -36,8 +36,8 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // 1. Обработка тайлов карты (Cache First -> Network -> Прозрачная заглушка)
-  if (url.host.includes('tile.openstreetmap.org') || url.host.includes('basemaps.cartocdn.com')) {
+  // 1. Обработка тайлов карты OpenStreetMap (Cache First -> Network -> Прозрачная заглушка)
+  if (url.host.includes('tile.openstreetmap.org')) {
     event.respondWith(
       caches.open(TILE_CACHE).then(async (cache) => {
         const cached = await cache.match(event.request);
@@ -80,14 +80,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Статика приложения (Cache First -> Network)
+  // 3. Статика приложения (Network First для HTML, чтобы изменения с GitHub подтягивались сразу)
   event.respondWith(
-    caches.match(event.request).then((res) => {
-      return res || fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
-    })
+    fetch(event.request)
+      .then((res) => {
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
