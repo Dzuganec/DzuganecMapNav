@@ -32,6 +32,13 @@
       background: #e5e3df;
     }
 
+    /* Скрытие флага в блоке копирайта Leaflet */
+    .leaflet-attribution-flag {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
     /* Ночной режим для стандартных тайлов OpenStreetMap (работает офлайн без доп. загрузки) */
     body.dark-map #map {
       background: #181a20;
@@ -227,8 +234,8 @@
 
     .sheet-header {
       display: flex;
-      justify-content: space-between;
       align-items: flex-start;
+      justify-content: space-between;
       gap: 8px;
     }
 
@@ -404,6 +411,9 @@
   <script>
     // 1. Инициализация карты с бесплатными тайлами OpenStreetMap (без API ключей)
     const map = L.map('map', { zoomControl: false }).setView([48.7858, 44.7797], 13);
+
+    // Убираем префикс "Leaflet" вместе с флагом
+    map.attributionControl.setPrefix(false);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
