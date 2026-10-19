@@ -1,15 +1,1 @@
-{
-  "name": "Dzuganec 3D Map & Navigator",
-  "short_name": "MapNav 3D",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#12151f",
-  "theme_color": "#12151f",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
-}
+{"name":"Dzuganec 3D Navigator","short_name":"MapNav 3D","start_url":"./index.html","scope":"./","display":"standalone","orientation":"portrait","background_color":"#0b1020","theme_color":"#0b1020","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
