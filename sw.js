@@ -1,89 +1,17 @@
-const CACHE_NAME = 'dzuganec-3d-core-v5';
-const TILE_CACHE = 'dzuganec-3d-tiles-v5';
-const API_CACHE = 'dzuganec-3d-api-v5';
 
-const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css',
-  'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  const allowed = [CACHE_NAME, TILE_CACHE, API_CACHE];
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => !allowed.includes(k)).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-
-  // 1. Кэширование векторных 3D-тайлов, 2ГИС, Спутника и шрифтов
-  if (
-    url.host.includes('openfreemap.org') ||
-    url.host.includes('maps.2gis.com') ||
-    url.host.includes('google.com') ||
-    url.host.includes('fonts.googleapis.com') ||
-    url.host.includes('fonts.gstatic.com')
-  ) {
-    event.respondWith(
-      caches.open(TILE_CACHE).then(async (cache) => {
-        const cached = await cache.match(event.request);
-        if (cached) return cached;
-
-        try {
-          const fresh = await fetch(event.request);
-          if (fresh.ok) cache.put(event.request, fresh.clone());
-          return fresh;
-        } catch {
-          return cached || new Response('', { status: 408 });
-        }
-      })
-    );
-    return;
-  }
-
-  // 2. Кэширование поиска и маршрутов OSRM
-  if (url.host.includes('nominatim.openstreetmap.org') || url.host.includes('router.project-osrm.org')) {
-    event.respondWith(
-      caches.open(API_CACHE).then(async (cache) => {
-        try {
-          const fresh = await fetch(event.request);
-          if (fresh.ok) cache.put(event.request, fresh.clone());
-          return fresh;
-        } catch {
-          const cached = await cache.match(event.request);
-          return cached || new Response(JSON.stringify({ error: 'offline' }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-      })
-    );
-    return;
-  }
-
-  // 3. Основной код приложения (Network First, чтобы обновления с GitHub применялись сразу)
-  event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return res;
-      })
-      .catch(() => caches.match(event.request))
-  );
+const V='dz-v6',SHELL=V+'-shell',TILES=V+'-tiles';
+const ASSETS=['./','./index.html','./manifest.json','./icon.svg','https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css','https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'];
+const TILE_HOSTS=['openfreemap.org','arcgisonline.com','fonts.googleapis.com','fonts.gstatic.com'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>Promise.all(ASSETS.map(a=>c.add(a).catch(()=>{})))));self.skipWaiting()});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>!x.startsWith(V)).map(x=>caches.delete(x)))));self.clients.claim()});
+self.addEventListener('fetch',e=>{
+  const r=e.request;if(r.method!=='GET')return;
+  const u=new URL(r.url);if(!/^https?:$/.test(u.protocol))return;
+  if(TILE_HOSTS.some(h=>u.host.endsWith(h))){
+    e.respondWith(caches.open(TILES).then(async c=>{const hit=await c.match(r);
+      const net=fetch(r).then(res=>{if(res.ok||res.type==='opaque')c.put(r,res.clone());return res}).catch(()=>hit||new Response('',{status:408}));
+      return hit||net}));return}
+  if(u.origin===location.origin||u.host==='unpkg.com'){
+    e.respondWith(fetch(r).then(res=>{if(res.ok)caches.open(SHELL).then(c=>c.put(r,res.clone()));return res}).catch(()=>caches.match(r).then(h=>h||caches.match('./index.html'))))}
+  // Nominatim / OSRM / Overpass: без кэша SW, приложение само хранит данные в IndexedDB
 });
